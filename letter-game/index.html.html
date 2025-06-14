@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>낱글자 카드 게임</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      background-color: #fdfdfd;
+      padding: 10px;
+    }
+    #progress-bar {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 6px;
+      max-width: 500px;
+      margin: 0 auto 16px;
+    }
+    .progress-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      background-color: #eee;
+      cursor: pointer;
+    }
+    .progress-box.correct { background-color: #7dd3fc; }
+    .progress-box.incorrect { background-color: #f87171; }
+
+    #image-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 70px;
+      margin-bottom: 30px;
+    }
+    #problemImage {
+      max-width: 250px;
+      max-height: 250px;
+    }
+    #game-container {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .card {
+      position: relative;
+      width: 100%;
+      padding-top: 100%;
+    }
+    .card-content {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      perspective: 1000px;
+    }
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+      position: relative;
+    }
+    .card:hover .card-inner {
+      transform: scale(1.05);
+    }
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 12px;
+      box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 96px;
+      font-weight: bold;
+    }
+    .card-front {
+      background-color: white;
+      color: black;
+    }
+    .card-back {
+      transform: rotateY(180deg);
+      color: black;
+    }
+    .arrow-button {
+      font-size: 32px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #celebration {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 9999;
+      animation: fadeIn 1s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    #celebration h1 {
+      font-size: 48px;
+      color: #f59e0b;
+      margin-bottom: 20px;
+    }
+    #celebration .emoji {
+      font-size: 60px;
+      animation: pop 0.5s ease infinite alternate;
+    }
+    @keyframes pop {
+      from { transform: scale(1); }
+      to { transform: scale(1.2); }
+    }
+  </style>
+</head>
+<body>
+  <div id="progress-bar"></div>
+
+  <div id="image-container">
+    <span class="arrow-button" onclick="previousProblem()">◀</span>
+    <img id="problemImage" src="" alt="문제 그림" />
+    <span class="arrow-button" onclick="nextProblem()">▶</span>
+  </div>
+
+  <div id="game-container"></div>
+
+  <div id="celebration">
+    <div class="emoji">🎉🎉🎉</div>
+    <h1>축하합니다! 잘 해내셨습니다!</h1>
+    <div class="emoji">🎊🎊🎊</div>
+  </div>
+
+  <script src="problems.js"></script>
+  <script>
+    const pastelColors = ["#fef3c7", "#fde68a", "#bae6fd", "#c4b5fd", "#fbcfe8", "#a7f3d0", "#fca5a5", "#fcd34d"];
+    const imageEl = document.getElementById('problemImage');
+    const container = document.getElementById('game-container');
+    const progressBar = document.getElementById('progress-bar');
+    const celebration = document.getElementById('celebration');
+
+    const allLetters = [...new Set(problems.flatMap(p => p.letters))];
+    const selectedProblems = problems.sort(() => Math.random() - 0.5).slice(0, 20);
+    const results = Array(selectedProblems.length).fill(null);
+
+    let colorIndex = 0;
+    let currentAnswer = [];
+    let currentStep = 0;
+    let currentIndex = 0;
+
+    const correctSound = new Audio("sounds/correct.mp3");
+    const wrongSound = new Audio("sounds/wrong.mp3");
+
+    function playSound(letter) {
+      const audio = new Audio(`sounds/${letter}.mp3`);
+      audio.play();
+    }
+
+    function updateProgressBar() {
+      progressBar.innerHTML = '';
+      results.forEach((result, index) => {
+        const box = document.createElement('div');
+        box.className = 'progress-box';
+        if (result === true) box.classList.add('correct');
+        else if (result === false) box.classList.add('incorrect');
+        box.onclick = () => {
+          currentIndex = index;
+          loadProblem(currentIndex);
+        };
+        progressBar.appendChild(box);
+      });
+    }
+
+    function loadProblem(index) {
+      const problem = selectedProblems[index];
+      imageEl.src = problem.image;
+      currentAnswer = problem.letters;
+      currentStep = 0;
+
+      const distractors = allLetters.filter(l => !currentAnswer.includes(l));
+      const extras = distractors.sort(() => Math.random() - 0.5).slice(0, 10 - currentAnswer.length);
+      const lettersToShow = [...currentAnswer, ...extras].sort(() => Math.random() - 0.5);
+      const bgColor = pastelColors[colorIndex % pastelColors.length];
+      colorIndex++;
+
+      container.innerHTML = '';
+      lettersToShow.forEach(letter => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const cardContent = document.createElement('div');
+        cardContent.className = 'card-content';
+        const inner = document.createElement('div');
+        inner.className = 'card-inner';
+
+        const front = document.createElement('div');
+        front.className = 'card-front';
+        front.innerText = letter;
+
+        const back = document.createElement('div');
+        back.className = 'card-back';
+        back.innerText = letter;
+        back.style.backgroundColor = bgColor;
+
+        inner.appendChild(front);
+        inner.appendChild(back);
+        cardContent.appendChild(inner);
+        card.appendChild(cardContent);
+
+        cardContent.onclick = () => {
+          if (!card.classList.contains('flipped')) {
+            card.classList.add('flipped');
+            playSound(letter);
+            if (letter === currentAnswer[currentStep]) {
+              currentStep++;
+              if (currentStep === currentAnswer.length) {
+                results[currentIndex] = true;
+                updateProgressBar();
+                correctSound.onended = () => nextProblem();
+                correctSound.play();
+              }
+            } else {
+              results[currentIndex] = false;
+              updateProgressBar();
+              wrongSound.onended = () => nextProblem();
+              wrongSound.play();
+            }
+          }
+        };
+        container.appendChild(card);
+      });
+    }
+
+    function nextProblem() {
+      if (results.every(r => r === true)) {
+        celebration.style.display = 'flex';
+        return;
+      }
+      if (currentIndex < selectedProblems.length - 1) {
+        currentIndex++;
+        loadProblem(currentIndex);
+      }
+    }
+
+    function previousProblem() {
+      if (currentIndex > 0) {
+        currentIndex--;
+        loadProblem(currentIndex);
+      }
+    }
+
+    updateProgressBar();
+    loadProblem(currentIndex);
+  </script>
+</body>
+</html>
