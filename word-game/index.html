@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>단어 게임</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      background-color: #fdfdfd;
+      padding: 10px;
+    }
+    #progress-bar {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 6px;
+      max-width: 500px;
+      margin: 0 auto 16px;
+    }
+    .progress-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      background-color: #eee;
+      cursor: pointer;
+    }
+    .progress-box.correct { background-color: #7dd3fc; }
+    .progress-box.incorrect { background-color: #f87171; }
+
+    #image-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 70px;
+      margin-bottom: 30px;
+    }
+    #problemImage {
+      max-width: 250px;
+      max-height: 250px;
+    }
+    #game-container {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .card {
+      position: relative;
+      width: 100%;
+      padding-top: 60%;
+    }
+    .card-content {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      perspective: 1000px;
+    }
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+      position: relative;
+    }
+    .card:hover .card-inner {
+      transform: scale(1.05);
+    }
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 12px;
+      box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 80px;
+      font-weight: bold;
+      letter-spacing: 8px;
+    }
+    .card-front {
+      background-color: white;
+      color: black;
+    }
+    .card-back {
+      transform: rotateY(180deg);
+      color: black;
+    }
+    .arrow-button {
+      font-size: 32px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #celebration {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.95);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 9999;
+      animation: fadeIn 1s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    #celebration h1 {
+      font-size: 48px;
+      color: #f59e0b;
+      margin-bottom: 20px;
+    }
+    #celebration .emoji {
+      font-size: 60px;
+      animation: pop 0.5s ease infinite alternate;
+    }
+    @keyframes pop {
+      from { transform: scale(1); }
+      to { transform: scale(1.2); }
+    }
+  
+    #celebration {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.95);
+      z-index: 1000;
+    }
+
+    #final-score-text {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    #celebration button {
+      padding: 12px 24px;
+      font-size: 18px;
+      background-color: #4da6ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    #celebration button:hover {
+      background-color: #1d8ef1;
+    }
+
+
+
+
+#game-container {
+  gap: 40px;                 /* 카드 간 간격 더 넓게 */
+  max-width: 1400px;         /* 전체 가로폭 더 넓게 */
+  justify-content: center;   /* 카드 가운데 정렬 */
+}
+
+
+
+.card-content {
+  perspective: 1000px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform-origin: center center; /* 중심 기준 회전 */
+}
+
+.card-inner {
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  position: relative;
+  transform-origin: center center;  /* 핵심: 중심 기준으로 회전 */
+}
+
+
+.card {
+  position: relative;
+  width: 100%;
+  padding-top: 60%;
+  perspective: 1000px;
+  max-width: 260px;  /* 약간 더 좁게 조정 */
+
+}
+
+
+
+.card.flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+
+
+</style>
+</head>
+<body>
+  <div id="progress-bar"></div>
+
+  <div id="image-container">
+    <span class="arrow-button" onclick="previousProblem()">◀</span>
+    <img id="problemImage" src="" alt="문제 그림" />
+    <span class="arrow-button" onclick="nextProblem()">▶</span>
+  </div>
+
+  <div id="game-container"></div>
+
+  <div id="celebration">
+    <h1 id="final-score-text"></h1>
+    <button onclick="location.reload()">다시 해볼래요</button>
+  </div>
+
+  <script src="word_problems.js"></script>
+  <script>
+    const pastelColors = ["#fef3c7", "#fde68a", "#bae6fd", "#c4b5fd", "#fbcfe8", "#a7f3d0", "#fca5a5", "#fcd34d"];
+    const imageEl = document.getElementById('problemImage');
+    const container = document.getElementById('game-container');
+    const progressBar = document.getElementById('progress-bar');
+    const celebration = document.getElementById('celebration');
+
+    const allWords = [...new Set(problems.flatMap(p => p.words))];
+    const selectedProblems = problems.sort(() => Math.random() - 0.5).slice(0, 20);
+    const results = Array(selectedProblems.length).fill(null);
+
+    let colorIndex = 0;
+    let currentAnswer = [];
+    let currentStep = 0;
+    let currentIndex = 0;
+
+    const correctSound = null;
+    const wrongSound = null;
+
+    function playSound(letter) {
+      const audio = new Audio(`sounds/${letter}.mp3`);
+      audio.play();
+    }
+
+    function updateProgressBar() {
+      progressBar.innerHTML = '';
+      results.forEach((result, index) => {
+        const box = document.createElement('div');
+        box.className = 'progress-box';
+        if (result === true) box.classList.add('correct');
+        else if (result === false) box.classList.add('incorrect');
+        box.onclick = () => {
+          currentIndex = index;
+          loadProblem(currentIndex);
+        };
+        progressBar.appendChild(box);
+      });
+    }
+
+    function loadProblem(index) {
+      const problem = selectedProblems[index];
+      imageEl.src = problem.image;
+      currentAnswer = problem.words;
+      currentStep = 0;
+
+      const distractors = allWords.filter(w => !currentAnswer.includes(w));
+      const extras = distractors.sort(() => Math.random() - 0.5).slice(0, 8 - currentAnswer.length);
+      const wordsToShow = [...currentAnswer, ...extras].sort(() => Math.random() - 0.5);
+      const bgColor = pastelColors[colorIndex % pastelColors.length];
+      colorIndex++;
+
+      container.innerHTML = '';
+      wordsToShow.forEach(word => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const cardContent = document.createElement('div');
+        cardContent.className = 'card-content';
+        const inner = document.createElement('div');
+        inner.className = 'card-inner';
+
+        const front = document.createElement('div');
+        front.className = 'card-front';
+        front.innerText = word;
+
+        const back = document.createElement('div');
+        back.className = 'card-back';
+        back.innerText = word;
+        back.style.backgroundColor = bgColor;
+
+        inner.appendChild(front);
+        inner.appendChild(back);
+        cardContent.appendChild(inner);
+        card.appendChild(cardContent);
+
+        cardContent.onclick = () => {
+          if (!card.classList.contains('flipped')) {
+            card.classList.add('flipped');
+            playSound(word);
+            if (word === currentAnswer[currentStep]) {
+              currentStep++;
+              if (currentStep === currentAnswer.length) {
+                results[currentIndex] = true;
+updateProgressBar();
+setTimeout(nextProblem, 700);
+                
+              }
+            } else {
+              results[currentIndex] = false;
+              updateProgressBar();
+              
+                wrongSound.onended = () => nextProblem();
+              
+            }
+          }
+        };
+        container.appendChild(card);
+      });
+    }
+
+    function nextProblem() {
+      if (results.every(r => r === true || r === false)) {
+        const correctCount = results.filter(r => r === true).length;
+        document.getElementById('final-score-text').innerText = `점수: ${correctCount} / ${results.length}`;
+        celebration.style.display = 'flex';
+        return;
+      }
+      if (currentIndex < selectedProblems.length - 1) {
+        currentIndex++;
+        loadProblem(currentIndex);
+      }
+    }
+
+    function previousProblem() {
+      if (currentIndex > 0) {
+        currentIndex--;
+        loadProblem(currentIndex);
+      }
+    }
+
+    updateProgressBar();
+    loadProblem(currentIndex);
+  </script>
+</body>
+</html>
